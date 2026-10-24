@@ -6,7 +6,7 @@ from common import login_hash, load_login_hashes, load_lines, verify, LAB_DIR
 
 USERS = LAB_DIR / "Q3" / "users"
 DICT = LAB_DIR / "Q3" / "LeakedPWs100k"
-ALREADY = {"Magdy"}
+ALREADY = {"Magdy", "Mostafa"}  # already exposed in Q1/Q2; Q3 wants a new user
 
 hashes = load_login_hashes()
 users = [u for u in load_lines(USERS) if u not in ALREADY]

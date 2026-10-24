@@ -34,8 +34,9 @@ def load_lines(path) -> list:
 
 
 def verify(qdir: str, user: str, pw: str):
-    """Verify via LoginTemplate.py (functionally identical to Login.pyc;
-    .pyc was built for Python 3.10 which isn't installed here)."""
+    """Verify via LoginTemplate.py (the exact source of Login.pyc; the .pyc was
+    compiled for Python 3.12 (magic cb0d0d0a), which isn't installed here, so the
+    bytecode can't be imported. Both read the same ../.loginCheck oracle)."""
     qpath = LAB_DIR / qdir
     script = LAB_DIR / "LoginTemplate.py"
     result = subprocess.run(

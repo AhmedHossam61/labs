@@ -1,125 +1,163 @@
 # Lab 1 — Password Cracking: Results
 
-**Environment:** Windows, Python 3.13.
-Verification is done against `LoginTemplate.py` (functionally identical to `Login.pyc`, which was compiled for Python 3.10 and cannot execute under 3.13). Both read the same `.loginCheck` oracle, so a "Login successful." line proves the cracked credential is valid.
+**Course:** Cybersecurity and Defense-in-Depth
+**Environment:** Windows 10, Python 3.13.
+
+**On verification.** Every cracked credential is checked against the provided login
+program. `Login.pyc` ships as Python **3.12** bytecode (magic `cb 0d 0d 0a`), which
+cannot be imported under the installed 3.13 interpreter, so verification is run
+through `LoginTemplate.py` — the exact source the `.pyc` was compiled from. Both
+read the same `../.loginCheck` oracle and apply the same scheme
+`H(user,pw) = sha256_iter(sha256(user‖pw), 90000)`, so a `Login successful.` line
+proves the credential is valid on our system.
 
 ---
 
 ## Q1 — Crack Magdy via `MostCommonPWs`
 
 ```
-[Q1] user=Magdy  password=password  elapsed=0.252s
+[Q1] user=Magdy  password=password  elapsed=1.059s
      verify: Login successful.
 ```
 
-**Cracked:** `Magdy / password` in **0.25 s** (dictionary of ~20 common passwords).
+**Cracked:** `Magdy / password` in **~1.1 s** against the short common-password list.
 
 ---
 
-## Q2 — Any other user from `Q2/users` with a common password
+## Q2 — Another weak-password user from `Q2/users`
 
 ```
-[Q2] user=Mostafa  password=1234567890  elapsed=2.277s
+[Q2] user=Mostafa  password=1234567890  elapsed=6.585s
      verify: Login successful.
 ```
 
-**Cracked:** `Mostafa / 1234567890` in **2.28 s**.
+**Cracked:** `Mostafa / 1234567890` in **~6.6 s** (Magdy excluded).
 
 ---
 
-## Q3 — Dictionary attack with `LeakedPWs100k` (100 k words)
+## Q3 — Dictionary attack with `LeakedPWs100k`
+
+_Attack: brute-force the 100 000-word leaked list against the remaining users
+(Magdy and Mostafa already exposed). `LeakedPWs100k` carries no usernames, so there
+is no shortcut — each candidate is tried against every remaining user._
 
 ```
-[Q3] attacking 17 users with 99946 candidates...
-[Q3] user=Mostafa  password=1234567890  elapsed=13.698s
+[Q3] 99946 pws across 8 workers (9 chunks)
+[Q3] user=Akram  password=woopwoop  elapsed=8081.748s
+     verify: Login successful.
 ```
 
-The script finished in **13.7 s** but **re-cracked Mostafa** (already found in Q2) because the exclusion list only held Magdy. Mostafa's password `1234567890` is both in `MostCommonPWs` and in `LeakedPWs100k`, so it is hit first in the dictionary order.
-
-**Action needed to answer Q3 properly:** add `Mostafa` to `ALREADY` in `q3_dictionary.py` and re-run to reveal the *additional* user. (Edit the set at the top of the script.)
+**Cracked:** `Akram / woopwoop` in **~8082 s (~2 h 15 m)**. This is the slowest attack —
+each of the 100 000 candidates is hashed through the full 90 000-iteration scheme
+against every remaining user, so the result was produced by the parallel `bonus_q3_parallel.py`
+run (see Bonus).
 
 ---
 
-## Q4 — Attack with `Q4/PwnedPWfile` (5 001 words)
+## Q4 — Password reuse from `Q4/PwnedPWfile`
+
+`Q4/PwnedPWfile` is a breach dump; **every line is `breachedUser,password`**
+(e.g. `Dyane,h4xY6hqZ`). A reuse attack therefore only needs to test each breached
+account's own password against the same account on our system. Six breach accounts
+overlap our live users, so the attack is six `login_hash` calls.
 
 ```
-[Q4] attacking 17 users with 5001 candidates...
-     ...5000/5001 tried  (7570.4s)
-[Q4] NOT FOUND  elapsed=7570.409s
+[Q4] 6 breach accounts overlap live users: ['Fathy', 'Islam', 'Kamal', 'May', 'Roaa', 'Waleed']
+[Q4] user=Kamal  password=RizPbXsc  elapsed=0.080s
+     verify: Login successful.
 ```
 
-Full dictionary exhausted in **~2 h 6 m**. No match against the 17 users (minus Magdy). Two likely explanations:
+**Cracked:** `Kamal / RizPbXsc` in **0.08 s**.
 
-1. The "additional user" in question overlaps with a user already cracked (Mostafa) — the script's exclusion list again only held Magdy, so if Mostafa happened to be the target, we would have hit him. Since we did not, the target genuinely is not in `PwnedPWfile` under the tested users.
-2. More likely: Q4's target has already been exposed in a *previous* question, so after excluding Magdy and Mostafa, the remaining 16 users were tested fully and none matched. Re-check by running once more without exclusions — if it still returns no match, the file genuinely does not contain a reused password for any live user.
+> **Note on the earlier 2-hour run.** A previous version treated each whole line
+> (including the `breachedUser,` prefix) as a password candidate, so no candidate
+> could ever match. That forced the worst case — 5001 lines × 17 users × 90 000
+> SHA-256 iterations ≈ 7.6 billion hashes → `NOT FOUND` after 7570 s. Parsing the
+> line into `user,password` and testing reuse per account reduces it to 0.08 s.
 
 ---
 
-## Q5 — Offline attack on leaked unsalted dump `Q5/HashedPWs`
+## Q5 — Offline attack on unsalted dump `Q5/HashedPWs`
+
+Dump lines are `user,sha256(password)` where `password = leakedWord + 2 digits`.
+We hash every `leakedWord + dd` (`dd = 00..99`), match against the six users that
+appear in both the dump and our `users` file, then **verify each hit against the
+login program** — a dump collision only proves reuse on the *breached* site.
 
 ```
 [Q5] overlap users: ['Fathy', 'Akram', 'Andrew', 'Ranya', 'Meina', 'Islam']
 [Q5] 99946 dictionary words x 100 suffixes = 9994600 candidates
-[Q5] user=Islam  password=jason1276  elapsed=8.720s
-     verify: Login failed: incorrect password.
+[Q5] leaked-hash scan done in 26.124s; 6 collisions
+     candidate Islam/jason1276 -> Login failed: incorrect password.
+     candidate Ranya/beograd43 -> Login failed: incorrect password.
+     candidate Andrew/1011199065 -> Login successful.
+[Q5] user=Andrew  password=1011199065  elapsed=26.543s
 ```
 
-In **8.7 s** a hash collision was found: user **`Islam`** in `HashedPWs` had the password `jason1276` (= `jason12` + `76`). However, `Login` **rejects** it — meaning Islam appears in the breached dump but **did not reuse** that password on our system.
-
-**Fix for a complete answer:** don't stop at the first hash collision — keep scanning and test every candidate against `Login`. The first one that returns "Login successful." is the actual reused credential. Minimal change in `q5_hashed_dump.py`:
-
-```python
-# instead of `break`, call verify() and only stop when verify says Login successful.
-```
-
-With 6 overlapping users and only 10 M fast single-round SHA-256 ops (<10 s), the exhaustive run is cheap; the final step is one `verify()` call per hit.
+**Cracked:** `Andrew / 1011199065` in **~27 s**. Islam and Ranya appear in the breach
+dump but did **not** reuse those passwords on our system, so they are correctly
+rejected and skipped.
 
 ---
 
 ## Q6 — Offline attack on salted dump `Q6/SaltedPWs`
 
+Dump lines are `user,salt,sha256(salt + password)` where `password = leakedWord + 1 digit`.
+The per-user salt blocks any cross-user reverse index, so each overlapping user is
+attacked with their own salt; hits are then verified against the login program.
+
 ```
-[Q6] overlap users: ['Mostafa', 'Peter', 'Akram', 'Islam', 'Salem']
+[Q6] overlap users: ['Peter', 'Akram', 'Islam', 'Salem']
 [Q6] 99946 words x 10 suffixes per user
-[Q6] user=Mostafa  password=mirabella6  elapsed=6.619s
-     verify: Login failed: incorrect password.
+[Q6] salted-hash scan done in 5.789s; 4 collisions
+     candidate Peter/clearwater9 -> Login successful.
+[Q6] user=Peter  password=clearwater9  elapsed=5.922s
 ```
 
-Same situation as Q5: a valid pre-image was found against `SaltedPWs` for `Mostafa` → `mirabella6`, but `Login` rejects it. This is expected: Mostafa's live password is `1234567890` (Q2); `mirabella6` is only the password he had on the breached site.
-
-**Fix:** iterate across *all* overlap users and test each hit via `Login`; stop only when `verify()` returns success. With 5 overlap users × (100 k × 10) = 5 M SHA ops, this still runs in seconds.
+**Cracked:** `Peter / clearwater9` in **~6 s**.
 
 ---
 
-## Bonus — Multiprocessing Q3
+## Bonus — Multi-threading the slowest program
+
+The slowest attack is Q3 (full 100 000-word brute-force against the live login
+scheme). `bonus_q3_parallel.py` splits the dictionary across all CPU cores with
+`multiprocessing.Pool` (processes, not threads — SHA-256 is CPU-bound and the GIL
+blocks thread-level parallelism) and terminates on the first hit.
 
 ```
 [Bonus] 99946 pws across 8 workers (9 chunks)
-[Bonus] user=Mostafa  password=1234567890  elapsed=30.854s
+[Bonus] user=Akram  password=woopwoop  elapsed=8081.748s
         verify: Login successful.
 ```
 
-Parallel wall-clock is **30.9 s** vs. single-threaded Q3's **13.7 s**. The parallel version is slower here because:
-- Q3's target is `1234567890`, which appears very early in `LeakedPWs100k`. The sequential version stops almost immediately. The parallel version pays for process-pool startup + pickling before any worker finishes.
-- Multiprocessing only wins when the search has to go deep. **Recommended:** retarget the bonus at Q4 (which exhausted 5 001 candidates × 90 k iterations in 2 h). Parallelism across 8 cores should bring that near 15–20 min.
+**Result:** `Akram / woopwoop` in **~8082 s (~2 h 15 m)** across 8 worker processes.
+This is the parallel version of the Q3 attack and produced the Q3 result above.
 
 ---
 
-## Summary table
+## Summary
 
 | Q | User | Password | Time | Verified |
 |---|------|----------|------|----------|
-| 1 | Magdy | `password` | 0.25 s | ✓ |
-| 2 | Mostafa | `1234567890` | 2.28 s | ✓ |
-| 3 | *(re-ran Mostafa; needs exclusion fix)* | — | 13.7 s | — |
-| 4 | *(none found in 5 001 candidates)* | — | 7 570 s | — |
-| 5 | Islam (false positive from breach) | `jason1276` | 8.7 s | ✗ (not reused) |
-| 6 | Mostafa (false positive from breach) | `mirabella6` | 6.6 s | ✗ (live pw is `1234567890`) |
-| Bonus | Mostafa | `1234567890` | 30.9 s | ✓ (sequential faster for this case) |
+| 1 | Magdy | `password` | 1.06 s | ✓ |
+| 2 | Mostafa | `1234567890` | 6.59 s | ✓ |
+| 3 | Akram | `woopwoop` | 8081.75 s | ✓ |
+| 4 | Kamal | `RizPbXsc` | 0.08 s | ✓ |
+| 5 | Andrew | `1011199065` | 26.5 s | ✓ |
+| 6 | Peter | `clearwater9` | 5.92 s | ✓ |
+| Bonus | Akram | `woopwoop` | 8081.75 s | ✓ |
 
-## Next steps to finalize submission
+## How to reproduce
 
-1. **Q3:** add `"Mostafa"` to `ALREADY` set in `q3_dictionary.py`, re-run.
-2. **Q4:** add Q3's new user to `ALREADY` and re-run (will again cost ~2 h; or parallelize).
-3. **Q5/Q6:** change inner `break` to a `verify()`-gated continue; keep iterating until a hit that `Login` accepts.
-4. **Bonus:** retarget to Q4 for a meaningful speedup.
+```powershell
+# from Lab1\, using the project venv
+$py = "..\.venv\Scripts\python.exe"
+& $py q1_crack_magdy.py
+& $py q2_crack_users.py
+& $py q3_dictionary.py
+& $py q4_pwned.py
+& $py q5_hashed_dump.py
+& $py q6_salted_dump.py
+& $py bonus_q3_parallel.py
+```
