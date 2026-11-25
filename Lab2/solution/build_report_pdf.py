@@ -54,8 +54,8 @@ def make_styles():
                                alignment=TA_LEFT, spaceAfter=5, textColor=colors.HexColor("#1a1a1a")),
         "li": ParagraphStyle("li", parent=ss["Normal"], fontSize=9.7, leading=13.5,
                              textColor=colors.HexColor("#1a1a1a")),
-        "code": ParagraphStyle("code", parent=ss["Code"], fontName="Courier", fontSize=8.3,
-                               leading=11, textColor=colors.HexColor("#222222")),
+        "code": ParagraphStyle("code", parent=ss["Code"], fontName="Courier", fontSize=6.6,
+                               leading=8.8, textColor=colors.HexColor("#222222")),
         "th": ParagraphStyle("th", parent=ss["Normal"], fontName="Helvetica-Bold",
                              fontSize=8.8, textColor=colors.white, leading=11),
         "td": ParagraphStyle("td", parent=ss["Normal"], fontSize=8.8, leading=11,
@@ -120,12 +120,12 @@ def build():
             code_html = "<br/>".join(
                 html.escape(cl, quote=False).replace(" ", "&nbsp;") for cl in code_lines
             )
-            tbl = Table([[Paragraph(code_html, styles["code"])]], colWidths=[16.5 * cm])
+            tbl = Table([[Paragraph(code_html, styles["code"])]], colWidths=[16.9 * cm])
             tbl.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f4f5f7")),
                 ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
-                ("LEFTPADDING", (0, 0), (-1, -1), 8),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
                 ("TOPPADDING", (0, 0), (-1, -1), 6),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
             ]))
