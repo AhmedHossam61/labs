@@ -1,0 +1,20 @@
+item,amount
+coffee,3
+books,40
+(synthetic sample)
+item,amount
+coffee,3
+books,40
+(synthetic sample)
+item,amount
+coffee,3
+books,40
+(synthetic sample)
+item,amount
+coffee,3
+books,40
+(synthetic sample)
+item,amount
+coffee,3
+books,40
+(synthetic sample)
